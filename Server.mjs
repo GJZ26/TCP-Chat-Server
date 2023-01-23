@@ -1,218 +1,100 @@
 import net from 'net'
-import { networkInterfaces } from 'os'
 
-// Configuración del servidor
 const server = net.createServer()
+
+// Creamos un array para almacenar a todos los usuarios que se vayan conectando
+const users = []
+
+// Esta configuració  deberá ser la misma a la que se conectará el cliente
 const port = 3000
-let host
 
-/* # Variables de estilización # */
+/*
+    En este caso el host hace referencia al localhost, en caso de que necesites que 
+    tu servidor sea accesible para cualquier dispositivo en la red, usa tu IP privada.
+    Puedes consultarla por terminal con ipconfig, asegúrate de usar la interfaz
+    de red correcta (WiFi, Ethernet, VM Adapter, etc.)
+*/
+const host = "127.0.0.1"
 
-
-// Asignación de la IP del servidor
-networkInterfaces()['Wi-Fi'].map((network) => {
-    if (network.family === 'IPv4') host = network.address
-})
-
-if (host == undefined) {
-    host = "127.0.0.1" // En caso de no estar conectado, asigna localhost
-}
-
-// Lista de usuarios
-const users = {}
-const user_preferences = {}
-const banned_users = []
-let freecolorindex = 1;
-
-
-/**##   SERVER LISTENERS   ##**/
-
+// Agregamos un listener al servidor para cuando haya una conexión nueva
 server.on('connection', (client) => {
 
-    if (firewall(client)) return
+    /*
+        Esta función se ejecuta cada que servidor capta una nueva conexión.
+        Pasa un sólo parámetro del tipo net.Socket que hace referencia al usuario
+        que se conectó. El nombre queda a tu consideración, en este caso le puse "client"
+     */
 
-    users[client.remoteAddress] = client
+    users.push(client) // <- Agregamos al nuevo usuario a la lista
+    console.log(`${client.remoteAddress} conectado`) // client.remoteAddress = IP del cliente
 
-    // Asignamos la IP como nickname en caso de ser nuevo usuario
-    if (user_preferences[client.remoteAddress] === undefined) {
-        user_preferences[client.remoteAddress] = { nickname: client.remoteAddress, color: `\x1b[3${freecolorindex}m` }
-        freecolorindex++
-        if (freecolorindex == 3) freecolorindex = 4
-        if (freecolorindex > 7) {
-            freecolorindex = 0
-        }
-    }
-
-    // Informamos la llegada de un nuevo usuario
-    sayToEveryone(`${printName(client)} ${serverSay("ha ingresado al servidor")}`,
-        `${client.remoteAddress} [${printName(client)}] ha ingresado al servidor`,
-        client.remoteAddress)
-
-    client.write("\n\x1b[33mBienvenido a TCP Chat Server\n\nPara cambiar tu nickname escribe:\n -n: [NICKNAME]\nPara ver los comandos disponibles escribe -h\n\x1b[0m")
-
+    /*
+        Client, al igual que el servidor, posee listener de eventos, los cuales podemos usar para 
+        hacer ciertas acciones según el evento escuchado
+     */
     client.on('data', (data) => {
-        if (userCommands(data, client)) return
-        if (data.toString().trim() == "") return
+        /*
+            Este evento se dispara cuando recibe un flujo de información del cliente.
+            Su callback, pasa un parámetro de tipo buffer que contiene la información que el cliente envió
+         */
 
-        sayToEveryone(`${printName(client)}: ${data.toString().trim()}`,
-            `${client.remoteAddress} [${printName(client)}]: ${data.toString().trim()}`,
-            client.remoteAddress)
+        const remitente = client.remoteAddress
+        const mensaje = data.toString().trim() // Al ser de tipo Buffer, se tiene que convertir a string
+        // al enviar, se envía con una tabulación al final, cosa que elimina el método trim()
 
-    })
+        users.map((un_usuario) => { // Recorremos la lista de usuarios activos y le enviamos el mensaje con la ip del remitente
+            un_usuario.write(remitente + ":" + mensaje)
+        })
 
-    client.on('error', (err) => {
-        if (err.errno == -4077) {
-            delete users[client.remoteAddress]
-            client.destroy()
-        }
+        console.log(remitente + ":" + mensaje) // Imprimimos el mensaje en la consola del servidor
+
     })
 
     client.on('close', () => {
-        if (user_preferences[client.remoteAddress] != undefined)
-            sayToEveryone(`${printName(client)} ${serverSay("salió del servidor")}`)
-
+        /*
+            Este evento se activa cuando el servidor pierde comunicación con el cliente.
+         */
+        users.map((un_usuario) => { // Le enviamos un mensaje a la lista de clientes diciendo que el usuario ha salido
+            un_usuario.write(client.remoteAddress + " ha salido del servidor")
+        })
     })
+
+    client.on('error', (err) => {
+        /*
+            Este evento se ejecuta cuando hay un error en la interacción cliente-servidor.
+            Su callback pasa un parámetro, la información del error ocurrido
+            En caso de no manejarse este evento, el programa 'crashea'
+        */
+        if (err.errno == -4077) {
+            // El parámetro recibido posee un atributo errno, que es el número de error
+            // El error -4077 ocurre cuando el cliente termina la conexión con el servidor de manera brusca
+            // (lo que pasa cuando cancelamos la ejecución con ctrl+c en la terminal)
+            // por esto, solo avisamos a los usuarios que el cliente ha salido del servidor
+            users.map((un_usuario) => {
+                un_usuario.write(client.remoteAddress + " ha salido del servidor")
+            })
+
+            console.log(client.remoteAddress + " ha salido del servidor")
+        } else {
+            console.error(err)
+        }
+    })
+
 })
 
-/*   UTILITY FUNCTIONS   */
-function sayToEveryone(messageclient, messageserver = messageclient, except) {
-    for (const key in users) {
-        if (users[key].remoteAddress === except) continue
-        users[key].write("\x1b[0m" + messageclient + "\n")
-    }
-    console.log("\x1b[0m" + messageserver.trim())
-}
-
-function userCommands(message, client) {
-
-    const commands = ["-q", "-n:", "-h"]
-    const firstWords = message.toString().trim().split(" ", 2)
-
-    return firstWords.some((phrase, index, line) => {
-
-        if (phrase == "-q" && index == 0) {
-            delete users[client.remoteAddress]
-            client.destroy()
-        }
-
-        if (phrase == "-n:" && index == 0 && line.length == 2) {
-            sayToEveryone(`${printName(client)} ${serverSay("ha cambiado su apodo a")} ${printName(client, line[1])}`,
-                `${client.remoteAddress} [${printName(client)}] ha cambiado su apodo a ${printName(client, line[1])}`)
-
-            user_preferences[client.remoteAddress].nickname = line[1]
-        }
-
-        if (phrase == "-h" && index == 0) {
-            client.write(
-                `\nLista de comandos
-    -q : Salir del servidor
-    -n: [NICKNAME] : Cambia tu apodo actual
-    -h: Muestra este mensaje de ayuda\n\n`
-            )
-        }
-
-        return commands.includes(phrase)
-    })
-
-}
-
-/* ## FUNCIONES DE ESTILIZADO ## */
-function printName(client, message) {
-    if (message == undefined) message = user_preferences[client.remoteAddress].nickname
-    return `${user_preferences[client.remoteAddress].color}\x1b[1m${message}\x1b[0m`
-}
-
-function serverSay(message) {
-    return `\x1b[33m\x1b[1m${message}\x1b[0m`
-}
-
-function kick(ip, ninja = true) {
-
-    if (ip == undefined) {
-        console.log("No se ha proporcionado una IP para kickear")
-        return false
-    }
-
-    if (user_preferences[ip] === undefined) {
-        console.log(`No hay ningún usuario con la ip [${ip}]`)
-        return false
-    }
-
-    if (!ninja)
-        sayToEveryone(`${serverSay("El usuario")} ${printName(users[ip])} ${serverSay("ha sido removido por el servidor")}`)
-
-    users[ip].destroy()
-
-    delete user_preferences[ip]
-    delete users[ip]
-    return true
-}
-
-function kickAll() {
-
-    if (Object.keys(users).length > 0) {
-        for (const key in users) {
-            kick(key)
-            console.log(`${key} ha sido kickeado`)
-        }
-        return
-    }
-
-    console.log("Todos los usuarios han sido eliminados")
-}
-
-function quit() {
-    kickAll()
-    server.close()
-    console.log("Servidor finalizado")
-    process.exit(0)
-}
-
-function ban(ip) {
-    if (kick(ip)) {
-        banned_users.push(ip)
-        sayToEveryone(`\x1b[31m\x1b[1m${ip} ha sido baneado del servidor\x1b[0m`)
-    }
-
-}
-
-function firewall(user) {
-    if(banned_users.includes(user.remoteAddress)){
-        user.write(`\x1b[31m\x1b[1mHas sido baneado de este servidor\x1b[0m`)
-        user.destroy()
-        return true
-    }
-    return false
-}
-
-/* ## SERVER LAUNCH ## */
-
-server.on('listening', () => {
-    process.stdin.on('data', (raw) => {
-        let data = raw.toString().trim().split(" ")
-        switch (data[0]) {
-            case "-l":
-                console.table(user_preferences)
-                break;
-            case "-ka":
-                kickAll()
-                break;
-            case "-q": quit()
-                break;
-            case "-k": kick(data[1], false)
-                break;
-            case "-b": ban(data[1])
-                break;
-            default: console.log("Comando no encontrado")
-                break;
-        }
-    })
+/*
+    Agregamos un listener al server para los errores, estos pueden ocurrir porque el puerto
+    que se usará para el proyecto está ocupado, ingresaste un ip errónea, etc.
+    
+    Con este listener evitamos que el programa crashee
+ */
+server.on('error', (err) => {
+    console.log(err)
 })
 
+/*
+    Ponemos a la escucha el servidor y listo! :)
+*/
 server.listen(port, host, () => {
-    console.info(`
-[SERVIDOR TCP/IP A LA ESCUCHA]
-    IP: ${server.address().address}
-  PORT: ${server.address().port}
-`)
+    console.log("Servidor a la escucha")
 })
