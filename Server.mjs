@@ -96,6 +96,14 @@ function userCommands(message, client) {
         }
 
         if (phrase == "-n:" && index == 0 && line.length == 2) {
+
+            for(const key in user_preferences){
+                if(user_preferences[key].nickname == line[1]){
+                    client.write(serverSay("Este nickname ya ha sido tomado por otro usuario"))
+                    return
+                }
+            }
+
             sayToEveryone(`${printName(client)} ${serverSay("ha cambiado su apodo a")} ${printName(client, line[1])}`,
                 `${client.remoteAddress} [${printName(client)}] ha cambiado su apodo a ${printName(client, line[1])}`)
 
@@ -177,7 +185,7 @@ function ban(ip) {
 }
 
 function firewall(user) {
-    if(banned_users.includes(user.remoteAddress)){
+    if (banned_users.includes(user.remoteAddress)) {
         user.write(`\x1b[31m\x1b[1mHas sido baneado de este servidor\x1b[0m`)
         user.destroy()
         return true
