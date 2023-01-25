@@ -10,9 +10,11 @@ let host
 
 
 // Asignación de la IP del servidor
-networkInterfaces()['Wi-Fi'].map((network) => {
-    if (network.family === 'IPv4') host = network.address
-})
+if (networkInterfaces()['Wi-Fi']) {
+    networkInterfaces()['Wi-Fi'].map((network) => {
+        if (network.family === 'IPv4') host = network.address
+    })
+}
 
 if (host == undefined) {
     host = "127.0.0.1" // En caso de no estar conectado, asigna localhost
@@ -97,8 +99,8 @@ function userCommands(message, client) {
 
         if (phrase == "-n:" && index == 0 && line.length == 2) {
 
-            for(const key in user_preferences){
-                if(user_preferences[key].nickname == line[1]){
+            for (const key in user_preferences) {
+                if (user_preferences[key].nickname == line[1]) {
                     client.write(serverSay("Este nickname ya ha sido tomado por otro usuario"))
                     return
                 }
