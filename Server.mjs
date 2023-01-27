@@ -6,9 +6,6 @@ const server = net.createServer()
 const port = 3000
 let host
 
-/* # Variables de estilización # */
-
-
 // Asignación de la IP del servidor
 if (networkInterfaces()['Wi-Fi']) {
     networkInterfaces()['Wi-Fi'].map((network) => {
@@ -136,7 +133,7 @@ function serverSay(message) {
     return `\x1b[33m\x1b[1m${message}\x1b[0m`
 }
 
-function kick(ip, ninja = true) {
+function kick(ip, silentMode = true) {
 
     if (ip == undefined) {
         console.log("No se ha proporcionado una IP para kickear")
@@ -148,7 +145,7 @@ function kick(ip, ninja = true) {
         return false
     }
 
-    if (!ninja)
+    if (!silentMode)
         sayToEveryone(`${serverSay("El usuario")} ${printName(users[ip])} ${serverSay("ha sido removido por el servidor")}`)
 
     users[ip].destroy()
