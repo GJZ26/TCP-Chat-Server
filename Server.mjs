@@ -177,6 +177,7 @@ function quit() {
 
 function ban(ip) {
     if (kick(ip)) {
+        delete user_preferences[ip]
         banned_users.push(ip)
         sayToEveryone(`\x1b[31m\x1b[1m${ip} ha sido baneado del servidor\x1b[0m`)
     }
@@ -184,17 +185,23 @@ function ban(ip) {
 }
 
 function unban(ip) {
-    if(ip === undefined){
-         console.log("Asigne un IP para remover de la lista negra")
-         return;
-        }
-    if(!banned_users.includes(ip)){ 
+    if (ip === undefined) {
+        console.log("Asigne un IP para remover de la lista negra")
+        return;
+    }
+    if (!banned_users.includes(ip)) {
         console.log(`No hay ningún usuario con IP [${ip}] en la lista negra del servidor`)
         return
-}
+    }
 
-    let filtered = banned_users.filter((banned) => { return banned !== ip })
-    banned_users.fill(filtered,0,)
+    banned_users = banned_users.filter((banned) => {
+        if (banned === ip) {
+            console.log(`El usuario con IP [${ip}] ha sido perdonado`)
+            return
+        }
+        return banned
+    })
+
 }
 
 function listBanned() {
@@ -235,9 +242,11 @@ server.on('listening', () => {
             case "-h":
                 console.log("Lista de comandos",
                     "\n\t-l: Lista a los usuarios registrados",
+                    "\n\t-lb: Lista a los usuarios baneados",
                     "\n\t-ka: Remueve a todos los usuarios del servidor",
                     "\n\t-k: [IP] Remueve al usuario de la IP dada",
                     "\n\t-b: [IP] Remueve y restrínge el acceso al servidor al usuario de la IP dada",
+                    "\n\t-ub: [IP] Remueve de la lista negra del servidor al usuario de la IP dada",
                     "\n\t-q: Remueve a todos los usuarios conectados y apaga el servidor",
                     "\n\t-h: Muestra este mensaje de error\n",
                 )
