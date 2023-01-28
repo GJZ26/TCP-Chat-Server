@@ -20,7 +20,7 @@ if (host == undefined) {
 // Lista de usuarios
 const users = {}
 const user_preferences = {}
-const banned_users = []
+let banned_users = []
 let freecolorindex = 1;
 
 
@@ -64,6 +64,7 @@ server.on('connection', (client) => {
             delete users[client.remoteAddress]
             client.destroy()
         }
+        console.error(err)
     })
 
     client.on('close', () => {
@@ -99,7 +100,7 @@ function userCommands(message, client) {
             for (const key in user_preferences) {
                 if (user_preferences[key].nickname == line[1]) {
                     client.write(serverSay("Este nickname ya ha sido tomado por otro usuario"))
-                    return
+                    return true
                 }
             }
 
@@ -150,7 +151,6 @@ function kick(ip, silentMode = true) {
 
     users[ip].destroy()
 
-    delete user_preferences[ip]
     delete users[ip]
     return true
 }
@@ -183,6 +183,24 @@ function ban(ip) {
 
 }
 
+function unban(ip) {
+    if(ip === undefined){
+         console.log("Asigne un IP para remover de la lista negra")
+         return;
+        }
+    if(!banned_users.includes(ip)){ 
+        console.log(`No hay ningún usuario con IP [${ip}] en la lista negra del servidor`)
+        return
+}
+
+    let filtered = banned_users.filter((banned) => { return banned !== ip })
+    banned_users.fill(filtered,0,)
+}
+
+function listBanned() {
+    console.table(banned_users)
+}
+
 function firewall(user) {
     if (banned_users.includes(user.remoteAddress)) {
         user.write(`\x1b[31m\x1b[1mHas sido baneado de este servidor\x1b[0m`)
@@ -210,6 +228,20 @@ server.on('listening', () => {
                 break;
             case "-b": ban(data[1])
                 break;
+            case "-ub": unban(data[1])
+                break
+            case "-lb": listBanned()
+                break;
+            case "-h":
+                console.log("Lista de comandos",
+                    "\n\t-l: Lista a los usuarios registrados",
+                    "\n\t-ka: Remueve a todos los usuarios del servidor",
+                    "\n\t-k: [IP] Remueve al usuario de la IP dada",
+                    "\n\t-b: [IP] Remueve y restrínge el acceso al servidor al usuario de la IP dada",
+                    "\n\t-q: Remueve a todos los usuarios conectados y apaga el servidor",
+                    "\n\t-h: Muestra este mensaje de error\n",
+                )
+                break;
             default: console.log("Comando no encontrado")
                 break;
         }
@@ -221,5 +253,7 @@ server.listen(port, host, () => {
 [SERVIDOR TCP/IP A LA ESCUCHA]
     IP: ${server.address().address}
   PORT: ${server.address().port}
+
+Presione -h para ver la lista de comandos
 `)
 })
