@@ -63,6 +63,7 @@ server.on('connection', (client) => {
         if (err.errno == -4077) {
             delete users[client.remoteAddress]
             client.destroy()
+            return
         }
         console.error(err)
     })
@@ -89,6 +90,8 @@ function userCommands(message, client) {
     const firstWords = message.toString().trim().split(" ", 2)
 
     return firstWords.some((phrase, index, line) => {
+
+        if(commands.includes(phrase) && index == 1) return false
 
         if (phrase == "-q" && index == 0) {
             delete users[client.remoteAddress]
