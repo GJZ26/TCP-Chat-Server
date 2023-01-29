@@ -25,12 +25,11 @@ let freecolorindex = 1;
 
 
 /**##   SERVER LISTENERS   ##**/
-
 server.on('connection', (client) => {
-
     if (firewall(client)) return
 
     users[client.remoteAddress] = client
+    client.setTimeout(5000)
 
     // Asignamos la IP como nickname en caso de ser nuevo usuario
     if (user_preferences[client.remoteAddress] === undefined) {
@@ -73,6 +72,15 @@ server.on('connection', (client) => {
             sayToEveryone(`${printName(client)} ${serverSay("salió del servidor")}`)
 
     })
+
+    client.on('timeout', () => {
+        sayToEveryone(`${serverSay("El usuario")} ${printName(client)} ${serverSay("ha sido eliminado por inactividad")}`,
+            `${serverSay("El usuario")} ${client.remoteAddress} [${printName(client)}] ${serverSay("ha sido eliminado por inactividad")}`)
+
+        kick(client.remoteAddress, true)
+
+    })
+
 })
 
 /*   UTILITY FUNCTIONS   */
@@ -91,7 +99,7 @@ function userCommands(message, client) {
 
     return firstWords.some((phrase, index, line) => {
 
-        if(commands.includes(phrase) && index == 1) return false
+        if (commands.includes(phrase) && index == 1) return false
 
         if (phrase == "-q" && index == 0) {
             delete users[client.remoteAddress]
