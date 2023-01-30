@@ -23,13 +23,14 @@ const user_preferences = {}
 let banned_users = []
 let freecolorindex = 1;
 
+console.clear()
 
 /**##   SERVER LISTENERS   ##**/
 server.on('connection', (client) => {
     if (firewall(client)) return
 
     users[client.remoteAddress] = client
-    client.setTimeout(5000)
+    client.setTimeout(60 * 1000)
 
     // Asignamos la IP como nickname en caso de ser nuevo usuario
     if (user_preferences[client.remoteAddress] === undefined) {
@@ -55,6 +56,8 @@ server.on('connection', (client) => {
         sayToEveryone(`${printName(client)}: ${data.toString().trim()}`,
             `${client.remoteAddress} [${printName(client)}]: ${data.toString().trim()}`,
             client.remoteAddress)
+
+        client.write(`${printName(client,"Tu:")} ${data.toString().trim()}`)
 
     })
 
